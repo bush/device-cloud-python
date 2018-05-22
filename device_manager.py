@@ -439,6 +439,7 @@ def publish_platform_info(client, attr_file_dir=default_cfg_dir, attr_file_name=
     client.attribute_publish("kernel", osal.os_kernel())
     client.attribute_publish("hdc_version", hdc_version)
     client.attribute_publish("mac_address", get_adapter_mac())
+    client.attribute_publish("relay_version", relay.relay_version())
 
     attr_path = os.path.join(attr_file_dir, attr_file_name)
     if os.path.exists(attr_path):

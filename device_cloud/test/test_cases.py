@@ -2047,6 +2047,8 @@ class RelayStop(unittest.TestCase):
         self.relay.running = True
         mock_thread = mock.Mock()
         self.relay.thread = mock_thread
+        self.relay.wsock = mock.Mock()
+        self.relay.track_ws = self.relay.wsock
 
         self.relay.stop()
         mock_thread.join.assert_called_once()
@@ -2061,6 +2063,8 @@ class RelayCreateRelay(unittest.TestCase):
         assert device_cloud.relay.relays[0]
 
         self.relay = device_cloud.relay.relays[0]
+        self.relay.wsock = mock.Mock()
+        self.relay.track_ws = self.relay.wsock
         assert self.relay.running == True
         assert self.relay.wsock != None
         assert self.relay.ws_thread != None
@@ -2085,25 +2089,27 @@ class RelayLoopNotRunning(unittest.TestCase):
         self.relay = device_cloud.relay.Relay("host1.aaa", "host2.aaa", 12345)
         self.relay.running = False
         self.relay.wsock = mock.Mock()
-        self.relay.lsock = mock.Mock()
+        self.relay.lsock.append(mock.Mock())
         self.relay._on_local_message()
-        assert self.relay.lsock == None
+        # on message should see the it is not running and delete the
+        # socket to an empy array
+        assert self.relay.lsock == []
 
 class RelayLoopWSClosed(unittest.TestCase):
     @mock.patch("select.select")
     def runTest(self, mock_select):
         self.relay = device_cloud.relay.Relay("host1.aaa", "host2.aaa", 12345)
         self.relay.running = True
-        self.relay.lsock = mock.Mock()
-        mock_select.return_value = ([self.relay.lsock], None, None)
+        self.relay.lsock.append(mock.Mock())
+        mock_select.return_value = (self.relay.lsock, None, None)
         mock_recv = mock.Mock()
         mock_recv.return_value = None
-        self.relay.lsock.recv = mock_recv
+        self.relay.lsock[0].recv = mock_recv
 
         self.relay._on_local_message()
         assert mock_recv.call_count == 1
         assert self.relay.wsock == None
-        assert self.relay.lsock == None
+        assert self.relay.lsock == []
 
 class RelayLoopNoData(unittest.TestCase):
     @mock.patch("select.select")
@@ -2111,15 +2117,15 @@ class RelayLoopNoData(unittest.TestCase):
         self.relay = device_cloud.relay.Relay("host1.aaa", "host2.aaa", 12345)
         self.relay.running = True
         self.relay.wsock = mock.Mock()
-        self.relay.lsock = mock.Mock()
-        mock_select.return_value = ([self.relay.lsock], None, None)
+        self.relay.lsock.append(mock.Mock())
+        mock_select.return_value = (self.relay.lsock, None, None)
         mock_recv = mock.Mock()
         mock_recv.return_value = None
-        self.relay.lsock.recv = mock_recv
+        self.relay.lsock[0].recv = mock_recv
 
         self.relay._on_local_message()
         assert mock_recv.call_count == 1
-        assert self.relay.lsock == None
+        assert self.relay.lsock == []
 
 class RelayLoopWithData(unittest.TestCase):
     @mock.patch("socket.socket")
@@ -2129,6 +2135,7 @@ class RelayLoopWithData(unittest.TestCase):
         self.relay.running = True
         self.relay.wsock = MagicMock()
         self.relay.lsock = MagicMock()
+        self.relay.lsocket_map[self.relay.lsock] = 0
         mock_select.return_value = ([self.relay.lsock], None, None)
         mock_recv = MagicMock()
         mock_recv.return_value = "data"
@@ -2137,7 +2144,7 @@ class RelayLoopWithData(unittest.TestCase):
         
         self.relay._on_local_message()
         assert mock_recv.call_count == 1
-        assert self.relay.lsock == None
+        assert self.relay.lsock == []
 
     def send_side_effect(self, *args, **kwargs):
         self.relay.running = False
@@ -2193,7 +2200,7 @@ class RelayLoopNoLocalError(unittest.TestCase):
         assert mock_recv.call_count == 1
         assert mock_socket.call_count == 1
         #assert self.relay.wsock == None
-        assert self.relay.lsock == None
+        assert self.relay.lsock == []
 
 class RelayLoopLocalReadError(unittest.TestCase):
     @mock.patch("socket.socket")
@@ -2202,17 +2209,16 @@ class RelayLoopLocalReadError(unittest.TestCase):
         self.relay = device_cloud.relay.Relay("host1.aaa", "host2.aaa", 12345)
         self.relay.running = True
         self.relay.wsock = mock.Mock(name="w")
-        self.relay.lsock = mock.Mock(name="l")
-        mock_select.return_value = ([self.relay.lsock], None, None)
+        self.relay.lsock.append( mock.Mock(name="l"))
+        mock_select.return_value = (self.relay.lsock, None, None)
         mock_recv = mock.Mock()
         mock_recv.return_value = ""
-        self.relay.lsock.recv = mock_recv
+        self.relay.lsock[0].recv = mock_recv
 
         self.relay._on_local_message()
         assert mock_recv.call_count == 1
         assert mock_socket.call_count == 0
-        #assert self.relay.wsock == None
-        assert self.relay.lsock == None
+        assert self.relay.lsock == []
 
 class ClientFileDownloadAsyncChecksumFail(unittest.TestCase):
     @mock.patch("ssl.SSLContext")

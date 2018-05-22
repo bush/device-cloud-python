@@ -19,6 +19,19 @@ access.
 Note: the device manager does not start the remote access services.
 The OS is expected to have the services properly configured.
 
+Multi Channel
+-------------
+Multiple connections are supported to the same remote access connection, e.g.:
+```sh
+ssh localhost -p 1234
+```
+Repeat the above N times.
+
+Reconnecting
+------------
+You can exit and reconnection on the same remote access session.
+
+
 Requirements
 ------------
 Device Manager:
